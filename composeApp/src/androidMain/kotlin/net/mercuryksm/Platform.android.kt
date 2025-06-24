@@ -80,6 +80,10 @@ class AndroidBluetoothProvider(
 
         stopActiveScan()
 
+        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
+            throw UnsupportedOperationException("Bluetooth is not enabled or not available.")
+        }
+
         if (ContextCompat.checkSelfPermission(
                 context,
                 android.Manifest.permission.BLUETOOTH_SCAN
@@ -98,10 +102,6 @@ class AndroidBluetoothProvider(
             Log.w(tag, "BLUETOOTH_CONNECT permission is not granted. Device names may not be available.")
             callback(emptyList())
             return
-        }
-
-        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-            throw UnsupportedOperationException("Bluetooth is not enabled or not available.")
         }
 
         val scanner: BluetoothLeScanner? = bluetoothAdapter.bluetoothLeScanner
