@@ -40,10 +40,18 @@ fun App(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (viewModel.showBluetoothButton) {
-                Button(onClick = {
-                    viewModel.loadDeviceList()
-                }) {
-                    Text("Bluetooth is available on this device.")
+                if (!viewModel.isScanning) {
+                    Button(onClick = {
+                        viewModel.startStreamingScan()
+                    }) {
+                        Text("Start Bluetooth Scan")
+                    }
+                } else {
+                    Button(onClick = {
+                        viewModel.stopScan()
+                    }) {
+                        Text("Stop Scanning...")
+                    }
                 }
                 if (viewModel.deviceList.isNotEmpty()) {
                     LazyColumn {

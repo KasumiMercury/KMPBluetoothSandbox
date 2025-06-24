@@ -11,6 +11,12 @@ expect fun getPlatform(): Platform
 interface BluetoothProvider {
     fun isBluetoothAvailable(): Boolean
     fun getDeviceList(callback: (List<Device>) -> Unit)
+    fun startDeviceScan(
+        onDeviceFound: (Device) -> Unit,
+        onScanComplete: (List<Device>) -> Unit,
+        onScanFailed: (String) -> Unit
+    )
+    fun stopDeviceScan()
 
     /**
      * Attempts to connect to the specified device.

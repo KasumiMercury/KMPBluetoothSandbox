@@ -15,6 +15,18 @@ class IOSBluetoothProvider : BluetoothProvider {
     override fun getDeviceList(callback: (List<Device>) -> Unit) {
         throw  UnsupportedOperationException("getDeviceList is not supported on iOS")
     }
+    
+    override fun startDeviceScan(
+        onDeviceFound: (Device) -> Unit,
+        onScanComplete: (List<Device>) -> Unit,
+        onScanFailed: (String) -> Unit
+    ) {
+        throw UnsupportedOperationException("startDeviceScan is not supported on iOS")
+    }
+    
+    override fun stopDeviceScan() {
+        throw UnsupportedOperationException("stopDeviceScan is not supported on iOS")
+    }
 
     override fun connect(device: Device) {
         throw UnsupportedOperationException("connect is not supported on iOS")

@@ -19,6 +19,9 @@ class BluetoothViewModel(
 
     var permissionErrorMessage by mutableStateOf<String?>(null)
         private set
+        
+    var isScanning by mutableStateOf(false)
+        private set
 
     fun loadDeviceList() {
         permissionErrorMessage = null
@@ -31,6 +34,47 @@ class BluetoothViewModel(
         } catch (e: BluetoothPermissionException) {
             permissionErrorMessage = e.message
         }
+    }
+    
+    fun startStreamingScan() {
+        permissionErrorMessage = null
+        deviceList = emptyList()
+        isScanning = true
+        
+        try {
+            bluetoothProvider.startDeviceScan(
+                onDeviceFound = { device ->
+                    CoroutineScope(Dispatchers.Main).launch {
+                        val currentList = deviceList.toMutableList()
+                        // Check if device already exists to avoid duplicates
+                        if (!currentList.any { it.address == device.address }) {
+                            currentList.add(device)
+                            deviceList = currentList
+                        }
+                    }
+                },
+                onScanComplete = { devices ->
+                    CoroutineScope(Dispatchers.Main).launch {
+                        isScanning = false
+                        deviceList = devices
+                    }
+                },
+                onScanFailed = { errorMessage ->
+                    CoroutineScope(Dispatchers.Main).launch {
+                        isScanning = false
+                        permissionErrorMessage = errorMessage
+                    }
+                }
+            )
+        } catch (e: BluetoothPermissionException) {
+            isScanning = false
+            permissionErrorMessage = e.message
+        }
+    }
+    
+    fun stopScan() {
+        isScanning = false
+        bluetoothProvider.stopDeviceScan()
     }
 
     fun clearPermissionError() {
