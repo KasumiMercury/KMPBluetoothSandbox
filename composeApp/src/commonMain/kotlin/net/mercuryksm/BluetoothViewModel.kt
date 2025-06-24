@@ -23,18 +23,6 @@ class BluetoothViewModel(
     var isScanning by mutableStateOf(false)
         private set
 
-    fun loadDeviceList() {
-        permissionErrorMessage = null
-        try {
-            bluetoothProvider.getDeviceList { devices ->
-                CoroutineScope(Dispatchers.Main).launch {
-                    deviceList = devices
-                }
-            }
-        } catch (e: BluetoothPermissionException) {
-            permissionErrorMessage = e.message
-        }
-    }
     
     fun startStreamingScan() {
         permissionErrorMessage = null
