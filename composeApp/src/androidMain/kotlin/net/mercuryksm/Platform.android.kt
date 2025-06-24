@@ -86,12 +86,12 @@ class AndroidBluetoothProvider(
 
         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
             Log.e(tag, "BLUETOOTH_SCAN permission is not granted.")
-            throw SecurityException("BLUETOOTH_SCAN permission is not granted.")
+            throw BluetoothPermissionException("BLUETOOTH_SCAN permission is not granted.")
         }
 
         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
             Log.w(tag, "BLUETOOTH_CONNECT permission is not granted. Device names may not be available.")
-            throw SecurityException("BLUETOOTH_CONNECT permission is not granted.")
+            throw BluetoothPermissionException("BLUETOOTH_CONNECT permission is not granted.")
         }
 
         val scanner: BluetoothLeScanner? = bluetoothAdapter.bluetoothLeScanner
@@ -210,7 +210,7 @@ class AndroidBluetoothProvider(
                 object : BluetoothGattCallback() {
                     override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                            throw SecurityException("Bluetooth connect permission is not granted.")
+                            throw BluetoothPermissionException("BLUETOOTH_CONNECT permission is not granted.")
                         }
                         if (newState == BluetoothProfile.STATE_CONNECTED) {
                             println("Connected to ${bluetoothDevice.name}")
@@ -221,7 +221,7 @@ class AndroidBluetoothProvider(
 
                     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                            throw SecurityException("Bluetooth connect permission is not granted.")
+                            throw BluetoothPermissionException("BLUETOOTH_CONNECT permission is not granted.")
                         }
                         if (status == BluetoothGatt.GATT_SUCCESS) {
                             println("Services discovered for ${bluetoothDevice.name}")
@@ -232,7 +232,7 @@ class AndroidBluetoothProvider(
                 }
             )
         } else {
-            throw SecurityException("Bluetooth connect permission is not granted.")
+            throw BluetoothPermissionException("BLUETOOTH_CONNECT permission is not granted.")
         }
     }
 

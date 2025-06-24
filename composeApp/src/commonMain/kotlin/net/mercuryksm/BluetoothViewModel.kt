@@ -17,12 +17,24 @@ class BluetoothViewModel(
     var deviceList by mutableStateOf<List<Device>>(emptyList())
         private set
 
+    var permissionErrorMessage by mutableStateOf<String?>(null)
+        private set
+
     fun loadDeviceList() {
-        bluetoothProvider.getDeviceList { devices ->
-            CoroutineScope(Dispatchers.Main).launch {
-                deviceList = devices
+        permissionErrorMessage = null
+        try {
+            bluetoothProvider.getDeviceList { devices ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    deviceList = devices
+                }
             }
+        } catch (e: BluetoothPermissionException) {
+            permissionErrorMessage = e.message
         }
+    }
+
+    fun clearPermissionError() {
+        permissionErrorMessage = null
     }
 
     enum class ConnectionState {

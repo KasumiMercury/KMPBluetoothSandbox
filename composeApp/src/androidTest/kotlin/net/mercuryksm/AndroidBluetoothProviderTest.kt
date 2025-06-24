@@ -60,13 +60,13 @@ class AndroidBluetoothProviderTest {
     }
 
     @Test
-    fun getDeviceList_throwsSecurityException_whenScanPermissionNotGranted() {
+    fun getDeviceList_throwsBluetoothPermissionException_whenScanPermissionNotGranted() {
         every { mockContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) } returns PackageManager.PERMISSION_DENIED
-        
+
         try {
             provider.getDeviceList { }
-            fail("SecurityException がスローされませんでした")
-        } catch (e: SecurityException) {
+            fail("BluetoothPermissionException がスローされませんでした")
+        } catch (e: BluetoothPermissionException) {
             assertTrue(e.message?.contains("BLUETOOTH_SCAN permission is not granted") == true)
         }
     }

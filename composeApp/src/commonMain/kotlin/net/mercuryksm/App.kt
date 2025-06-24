@@ -9,10 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,12 +41,7 @@ fun App(
         ) {
             if (viewModel.showBluetoothButton) {
                 Button(onClick = {
-                    try {
-                        viewModel.loadDeviceList()
-                    } catch (e: Exception) {
-                        // TODO: improve error display e.g. show a snackbar or dialog
-                        println("Error loading device list: ${e.message}")
-                    }
+                    viewModel.loadDeviceList()
                 }) {
                     Text("Bluetooth is available on this device.")
                 }
@@ -79,6 +77,22 @@ fun App(
                     Image(painterResource(Res.drawable.compose_multiplatform), null)
                     Text("Compose: $greeting")
                 }
+            }
+            
+            // Permission error dialog
+            viewModel.permissionErrorMessage?.let { errorMessage ->
+                AlertDialog(
+                    onDismissRequest = { viewModel.clearPermissionError() },
+                    title = { Text("Bluetooth Permission Required") },
+                    text = { 
+                        Text("This app needs Bluetooth permissions to scan for devices. Please grant the required permissions in your device settings.\n\nError: $errorMessage")
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { viewModel.clearPermissionError() }) {
+                            Text("OK")
+                        }
+                    }
+                )
             }
         }
     }
