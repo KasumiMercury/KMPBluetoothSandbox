@@ -96,6 +96,8 @@ class AndroidBluetoothProvider(
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             Log.w(tag, "BLUETOOTH_CONNECT permission is not granted. Device names may not be available.")
+            callback(emptyList())
+            return
         }
 
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {

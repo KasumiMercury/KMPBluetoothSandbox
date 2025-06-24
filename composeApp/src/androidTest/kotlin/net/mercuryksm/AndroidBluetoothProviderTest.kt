@@ -60,6 +60,13 @@ class AndroidBluetoothProviderTest {
     }
 
     // TODO: fix this test
+    /*
+    java.lang.AssertionError
+    at org.junit.Assert.fail(Assert.java:87)
+    at org.junit.Assert.assertTrue(Assert.java:42)
+    at org.junit.Assert.assertTrue(Assert.java:53)
+    at net.mercuryksm.AndroidBluetoothProviderTest.getDeviceList_returnsEmptyList_whenScanPermissionNotGranted(AndroidBluetoothProviderTest.kt:68)
+     */
     @Test
     fun getDeviceList_returnsEmptyList_whenScanPermissionNotGranted() {
         every { mockContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) } returns PackageManager.PERMISSION_DENIED
@@ -89,6 +96,18 @@ class AndroidBluetoothProviderTest {
     }
 
     // TODO: fix this test
+    /*
+    java.lang.AbstractMethodError: 'public abstract void java.lang.Runnable.run()' cannot be called
+    at java.lang.Object_4a951e4_Proxy.run(Unknown Source:22)
+    at android.os.Handler.handleCallback(Handler.java:958)
+    at android.os.Handler.dispatchMessage(Handler.java:99)
+    at android.os.Looper.loopOnce(Looper.java:205)
+    at android.os.Looper.loop(Looper.java:294)
+    at android.app.ActivityThread.main(ActivityThread.java:8177)
+    at java.lang.reflect.Method.invoke(Native Method)
+    at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:552)
+    at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:971)
+     */
     @Test
     fun getDeviceList_returnsDevices_whenScanSucceeds() {
         val mockBluetoothDevice = mockk<BluetoothDevice>()
