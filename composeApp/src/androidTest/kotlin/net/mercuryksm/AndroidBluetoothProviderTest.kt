@@ -59,20 +59,16 @@ class AndroidBluetoothProviderTest {
         }
     }
 
-    // TODO: fix this test
-    /*
-    java.lang.AssertionError
-    at org.junit.Assert.fail(Assert.java:87)
-    at org.junit.Assert.assertTrue(Assert.java:42)
-    at org.junit.Assert.assertTrue(Assert.java:53)
-    at net.mercuryksm.AndroidBluetoothProviderTest.getDeviceList_returnsEmptyList_whenScanPermissionNotGranted(AndroidBluetoothProviderTest.kt:68)
-     */
     @Test
-    fun getDeviceList_returnsEmptyList_whenScanPermissionNotGranted() {
+    fun getDeviceList_throwsSecurityException_whenScanPermissionNotGranted() {
         every { mockContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) } returns PackageManager.PERMISSION_DENIED
-        var resultList: List<Device>? = null
-        provider.getDeviceList { resultList = it }
-        assertTrue(resultList?.isEmpty() == true)
+        
+        try {
+            provider.getDeviceList { }
+            fail("SecurityException がスローされませんでした")
+        } catch (e: SecurityException) {
+            assertTrue(e.message?.contains("BLUETOOTH_SCAN permission is not granted") == true)
+        }
     }
 
     @Test
