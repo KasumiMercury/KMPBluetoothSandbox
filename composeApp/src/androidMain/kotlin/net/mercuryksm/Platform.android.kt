@@ -84,20 +84,12 @@ class AndroidBluetoothProvider(
             throw UnsupportedOperationException("Bluetooth is not enabled or not available.")
         }
 
-        if (ContextCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.BLUETOOTH_SCAN
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
             Log.e(tag, "BLUETOOTH_SCAN permission is not granted.")
             throw SecurityException("BLUETOOTH_SCAN permission is not granted.")
         }
 
-        if (ContextCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.BLUETOOTH_CONNECT
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
             Log.w(tag, "BLUETOOTH_CONNECT permission is not granted. Device names may not be available.")
             throw SecurityException("BLUETOOTH_CONNECT permission is not granted.")
         }
@@ -204,11 +196,7 @@ class AndroidBluetoothProvider(
     }
 
     override fun connect(device: Device) {
-        if (ContextCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
             val bluetoothDevice = deviceCache[device.address]
                 ?: throw IllegalArgumentException("Device not found in cache: ${device.address}")
 
@@ -221,11 +209,7 @@ class AndroidBluetoothProvider(
                 false,
                 object : BluetoothGattCallback() {
                     override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                        if (ContextCompat.checkSelfPermission(
-                                context,
-                                android.Manifest.permission.BLUETOOTH_CONNECT
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
+                        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                             throw SecurityException("Bluetooth connect permission is not granted.")
                         }
                         if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -236,11 +220,7 @@ class AndroidBluetoothProvider(
                     }
 
                     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                        if (ContextCompat.checkSelfPermission(
-                                context,
-                                android.Manifest.permission.BLUETOOTH_CONNECT
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
+                        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                             throw SecurityException("Bluetooth connect permission is not granted.")
                         }
                         if (status == BluetoothGatt.GATT_SUCCESS) {
