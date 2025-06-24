@@ -50,19 +50,17 @@ kotlin {
 
         androidUnitTest.dependencies {
             implementation(libs.kotlin.test)
-            // TODO: lib
-            implementation("io.mockk:mockk-android:1.13.11")
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+            implementation(libs.mockk.android)
+            implementation(libs.kotlinx.coroutines.test)
         }
 
         androidInstrumentedTest.dependencies {
-            // TODO: lib
             implementation(libs.kotlin.test)
-            implementation("io.mockk:mockk-android:1.13.11")
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+            implementation(libs.mockk.android)
+            implementation(libs.kotlinx.coroutines.test)
 
-            implementation("androidx.test.ext:junit:1.1.5")
-            implementation("androidx.test:runner:1.5.2")
+            implementation(libs.androidx.testExt.junit)
+            implementation(libs.androidx.runner)
         }
     }
 }
