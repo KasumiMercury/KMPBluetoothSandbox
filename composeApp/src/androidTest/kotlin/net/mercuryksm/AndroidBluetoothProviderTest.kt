@@ -154,4 +154,121 @@ class AndroidBluetoothProviderTest {
         every { mockAdapter.isEnabled } returns false
         assertFalse(provider.isBluetoothAvailable())
     }
+
+    @Test
+    fun startDeviceScan_callsOnScanFailed_whenBluetoothDisabled() {
+        every { mockAdapter.isEnabled } returns false
+        
+        var failedMessage: String? = null
+        provider.startDeviceScan(
+            onDeviceFound = { fail("onDeviceFound should not be called") },
+            onScanComplete = { fail("onScanComplete should not be called") },
+            onScanFailed = { failedMessage = it }
+        )
+        
+        assertEquals("Bluetooth is not enabled or not available.", failedMessage)
+    }
+
+    @Test
+    fun startDeviceScan_callsOnScanFailed_whenScanPermissionNotGranted() {
+        every { mockContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) } returns PackageManager.PERMISSION_DENIED
+        
+        var failedMessage: String? = null
+        provider.startDeviceScan(
+            onDeviceFound = { fail("onDeviceFound should not be called") },
+            onScanComplete = { fail("onScanComplete should not be called") },
+            onScanFailed = { failedMessage = it }
+        )
+        
+        assertEquals("BLUETOOTH_SCAN permission is not granted.", failedMessage)
+    }
+
+    @Test
+    fun startDeviceScan_callsOnScanFailed_whenConnectPermissionNotGranted() {
+        every { mockContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) } returns PackageManager.PERMISSION_DENIED
+        
+        var failedMessage: String? = null
+        provider.startDeviceScan(
+            onDeviceFound = { fail("onDeviceFound should not be called") },
+            onScanComplete = { fail("onScanComplete should not be called") },
+            onScanFailed = { failedMessage = it }
+        )
+        
+        assertEquals("BLUETOOTH_CONNECT permission is not granted.", failedMessage)
+    }
+
+    @Test
+    fun startDeviceScan_callsOnScanFailed_whenScannerNotAvailable() {
+        every { mockAdapter.bluetoothLeScanner } returns null
+        
+        var failedMessage: String? = null
+        provider.startDeviceScan(
+            onDeviceFound = { fail("onDeviceFound should not be called") },
+            onScanComplete = { fail("onScanComplete should not be called") },
+            onScanFailed = { failedMessage = it }
+        )
+        
+        assertEquals("BluetoothLeScanner is not available.", failedMessage)
+    }
+
+    @Test
+    fun startDeviceScan_callsOnDeviceFound_whenDeviceDiscovered() {
+        val mockBluetoothDevice = mockk<BluetoothDevice>()
+        every { mockBluetoothDevice.address } returns "00:11:22:33:AA:BB"
+        every { mockBluetoothDevice.name } returns "TestDevice"
+
+        val mockScanResult = mockk<ScanResult>()
+        every { mockScanResult.device } returns mockBluetoothDevice
+        every { mockScanResult.rssi } returns -50
+
+        val scanCallbackSlot = slot<ScanCallback>()
+        every { mockScanner.startScan(any(), any(), capture(scanCallbackSlot)) } just Runs
+
+        var foundDevice: Device? = null
+        provider.startDeviceScan(
+            onDeviceFound = { foundDevice = it },
+            onScanComplete = { },
+            onScanFailed = { fail("onScanFailed should not be called: $it") }
+        )
+
+        // Simulate device discovery
+        scanCallbackSlot.captured.onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, mockScanResult)
+
+        assertEquals("TestDevice", foundDevice?.name)
+        assertEquals("00:11:22:33:AA:BB", foundDevice?.address)
+    }
+
+    @Test
+    fun startDeviceScan_callsOnScanFailed_whenScanFails() {
+        val scanCallbackSlot = slot<ScanCallback>()
+        every { mockScanner.startScan(any(), any(), capture(scanCallbackSlot)) } answers {
+            scanCallbackSlot.captured.onScanFailed(ScanCallback.SCAN_FAILED_INTERNAL_ERROR)
+        }
+
+        var failedMessage: String? = null
+        provider.startDeviceScan(
+            onDeviceFound = { fail("onDeviceFound should not be called") },
+            onScanComplete = { fail("onScanComplete should not be called") },
+            onScanFailed = { failedMessage = it }
+        )
+
+        assertEquals("Internal error", failedMessage)
+    }
+
+    @Test
+    fun stopDeviceScan_stopsActiveScan() {
+        val scanCallbackSlot = slot<ScanCallback>()
+        every { mockScanner.startScan(any(), any(), capture(scanCallbackSlot)) } just Runs
+        every { mockScanner.stopScan(any<ScanCallback>()) } just Runs
+
+        provider.startDeviceScan(
+            onDeviceFound = { },
+            onScanComplete = { },
+            onScanFailed = { }
+        )
+
+        provider.stopDeviceScan()
+
+        verify { mockScanner.stopScan(scanCallbackSlot.captured) }
+    }
 }
