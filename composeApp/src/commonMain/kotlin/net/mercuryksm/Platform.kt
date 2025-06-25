@@ -20,10 +20,16 @@ interface BluetoothProvider {
     /**
      * Attempts to connect to the specified device.
      * @param device The device to connect to
+     * @param onConnected Callback when connection succeeds
+     * @param onConnectionFailed Callback when connection fails
      * @throws IllegalArgumentException if device is invalid
      * @throws SecurityException if permissions are insufficient
      */
-    fun connect(device: Device)
+    fun connect(
+        device: Device,
+        onConnected: (() -> Unit)? = null,
+        onConnectionFailed: ((String) -> Unit)? = null
+    )
 
     /**
      * Disconnects from the currently connected device.

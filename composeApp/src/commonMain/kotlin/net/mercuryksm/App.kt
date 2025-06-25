@@ -62,12 +62,7 @@ fun App(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        try {
-                                            viewModel.connectDevice(device)
-                                        } catch (e: Exception) {
-                                            // TODO: improve error display e.g. show a snackbar or dialog
-                                            println("Error connecting device: ${e.message}")
-                                        }
+                                        viewModel.connectDevice(device)
                                     }
                             )
                         }
@@ -97,6 +92,22 @@ fun App(
                     },
                     confirmButton = {
                         TextButton(onClick = { viewModel.clearPermissionError() }) {
+                            Text("OK")
+                        }
+                    }
+                )
+            }
+            
+            // Connection error dialog
+            viewModel.connectionErrorMessage?.let { errorMessage ->
+                AlertDialog(
+                    onDismissRequest = { viewModel.clearConnectionError() },
+                    title = { Text("Connection Failed") },
+                    text = { 
+                        Text(errorMessage)
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { viewModel.clearConnectionError() }) {
                             Text("OK")
                         }
                     }

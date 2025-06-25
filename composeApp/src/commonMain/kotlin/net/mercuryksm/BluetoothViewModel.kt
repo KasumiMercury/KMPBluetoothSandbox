@@ -20,6 +20,9 @@ class BluetoothViewModel(
     var permissionErrorMessage by mutableStateOf<String?>(null)
         private set
         
+    var connectionErrorMessage by mutableStateOf<String?>(null)
+        private set
+        
     var isScanning by mutableStateOf(false)
         private set
 
@@ -69,6 +72,10 @@ class BluetoothViewModel(
         permissionErrorMessage = null
     }
 
+    fun clearConnectionError() {
+        connectionErrorMessage = null
+    }
+
     enum class ConnectionState {
         CONNECTED, DISCONNECTED, CONNECTING, FAILED
     }
@@ -79,13 +86,26 @@ class BluetoothViewModel(
     fun connectDevice(device: Device) {
         if (connectionState == ConnectionState.CONNECTING) return
 
+        connectionErrorMessage = null
         connectionState = ConnectionState.CONNECTING
         try {
-            bluetoothProvider.connect(device)
-            connectionState = ConnectionState.CONNECTED
+            bluetoothProvider.connect(
+                device = device,
+                onConnected = {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        connectionState = ConnectionState.CONNECTED
+                    }
+                },
+                onConnectionFailed = { errorMessage ->
+                    CoroutineScope(Dispatchers.Main).launch {
+                        connectionState = ConnectionState.FAILED
+                        connectionErrorMessage = "Failed to connect to ${device.name}: $errorMessage"
+                    }
+                }
+            )
         } catch (e: Exception) {
             connectionState = ConnectionState.FAILED
-            throw e
+            connectionErrorMessage = "Failed to connect to ${device.name}: ${e.message}"
         }
     }
 }
