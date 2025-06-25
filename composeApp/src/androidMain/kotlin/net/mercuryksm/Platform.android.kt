@@ -240,7 +240,11 @@ class AndroidBluetoothProvider(
         stopActiveScan()
     }
 
-    override fun connect(device: Device) {
+    override fun connect(
+        device: Device,
+        onConnected: (() -> Unit)?,
+        onConnectionFailed: ((String) -> Unit)?
+    ) {
         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
             val bluetoothDevice = deviceCache[device.address]
                 ?: throw IllegalArgumentException("Device not found in cache: ${device.address}")
@@ -255,23 +259,26 @@ class AndroidBluetoothProvider(
                 object : BluetoothGattCallback() {
                     override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                            throw BluetoothPermissionException("BLUETOOTH_CONNECT permission is not granted.")
+                            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
+                            return
                         }
                         if (newState == BluetoothProfile.STATE_CONNECTED) {
-                            println("Connected to ${bluetoothDevice.name}")
+                            gatt.discoverServices()
+                            onConnected?.invoke()
                         } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                            println("Disconnected from ${bluetoothDevice.name}")
+                            if (status != BluetoothGatt.GATT_SUCCESS) {
+                                onConnectionFailed?.invoke("Connection failed with status: $status")
+                            }
                         }
                     }
 
                     override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                            throw BluetoothPermissionException("BLUETOOTH_CONNECT permission is not granted.")
+                            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
+                            return
                         }
-                        if (status == BluetoothGatt.GATT_SUCCESS) {
-                            println("Services discovered for ${bluetoothDevice.name}")
-                        } else {
-                            println("Failed to discover services for ${bluetoothDevice.name}, status: $status")
+                        if (status != BluetoothGatt.GATT_SUCCESS) {
+                            onConnectionFailed?.invoke("Failed to discover services, status: $status")
                         }
                     }
                 }

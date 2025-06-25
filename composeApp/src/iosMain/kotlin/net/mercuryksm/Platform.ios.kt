@@ -25,7 +25,11 @@ class IOSBluetoothProvider : BluetoothProvider {
         throw UnsupportedOperationException("stopDeviceScan is not supported on iOS")
     }
 
-    override fun connect(device: Device) {
+    override fun connect(
+        device: Device,
+        onConnected: (() -> Unit)?,
+        onConnectionFailed: ((String) -> Unit)?
+    ) {
         throw UnsupportedOperationException("connect is not supported on iOS")
     }
     override fun disconnect() {
