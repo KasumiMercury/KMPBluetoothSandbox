@@ -228,16 +228,23 @@ class AndroidBluetoothProvider(
         activeScanCallback = scanCallback
 
         Log.d(TAG, "Starting Bluetooth streaming scan...")
-        scanner.startScan(
-            filters,
-            settings,
-            scanCallback
-        )
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+            scanner.startScan(
+                filters,
+                settings,
+                scanCallback
+            )
+        } else {
+            onScanFailed("BLUETOOTH_SCAN permission is not granted")
+            return
+        }
 
         scanRunnable = Runnable {
             Log.d(TAG, "Stopping Bluetooth scan after timeout...")
             try {
-                scanner.stopScan(scanCallback)
+                if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+                    scanner.stopScan(scanCallback)
+                }
             } catch (e: SecurityException) {
                 Log.w(TAG, "Failed to stop scan due to security exception", e)
             } catch (e: Exception) {
@@ -301,11 +308,15 @@ class AndroidBluetoothProvider(
         onConnected: (() -> Unit)?,
         onConnectionFailed: ((String) -> Unit)?
     ) {
-        bluetoothDevice.connectGatt(
-            context,
-            false,
-            createGattCallback(onConnected, onConnectionFailed)
-        )
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+            bluetoothDevice.connectGatt(
+                context,
+                false,
+                createGattCallback(onConnected, onConnectionFailed)
+            )
+        } else {
+            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
+        }
     }
 
     /**
@@ -344,7 +355,9 @@ class AndroidBluetoothProvider(
         when (newState) {
             BluetoothProfile.STATE_CONNECTED -> {
                 Log.d(TAG, "Connected to GATT server")
-                gatt.discoverServices()
+                if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    gatt.discoverServices()
+                }
                 onConnected?.invoke()
             }
             BluetoothProfile.STATE_DISCONNECTED -> {
