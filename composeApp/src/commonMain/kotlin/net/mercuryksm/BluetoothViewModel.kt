@@ -11,24 +11,38 @@ import net.mercuryksm.device.Device
 class BluetoothViewModel(
     private val bluetoothProvider: BluetoothProvider
 ) {
+    // Bluetooth availability state
     var showBluetoothButton by mutableStateOf(bluetoothProvider.isBluetoothAvailable())
         private set
 
+    // Scanning state
+    var isScanning by mutableStateOf(false)
+        private set
+    
     var deviceList by mutableStateOf<List<Device>>(emptyList())
         private set
 
+    // Error states
     var permissionErrorMessage by mutableStateOf<String?>(null)
         private set
         
     var connectionErrorMessage by mutableStateOf<String?>(null)
         private set
-        
-    var isScanning by mutableStateOf(false)
+
+    // Connection state
+    var connectionState by mutableStateOf(ConnectionState.DISCONNECTED)
         private set
 
-    
+    enum class ConnectionState {
+        DISCONNECTED,
+        CONNECTING,
+        CONNECTED,
+        FAILED
+    }
+
+    // Scanning operations
     fun startStreamingScan() {
-        permissionErrorMessage = null
+        clearPermissionError()
         deviceList = emptyList()
         isScanning = true
         
@@ -36,12 +50,7 @@ class BluetoothViewModel(
             bluetoothProvider.startDeviceScan(
                 onDeviceFound = { device ->
                     CoroutineScope(Dispatchers.Main).launch {
-                        val currentList = deviceList.toMutableList()
-                        // Check if device already exists to avoid duplicates
-                        if (!currentList.any { it.address == device.address }) {
-                            currentList.add(device)
-                            deviceList = currentList
-                        }
+                        addDeviceToList(device)
                     }
                 },
                 onScanComplete = { devices ->
@@ -68,26 +77,21 @@ class BluetoothViewModel(
         bluetoothProvider.stopDeviceScan()
     }
 
-    fun clearPermissionError() {
-        permissionErrorMessage = null
+    private fun addDeviceToList(device: Device) {
+        val currentList = deviceList.toMutableList()
+        if (!currentList.any { it.address == device.address }) {
+            currentList.add(device)
+            deviceList = currentList
+        }
     }
 
-    fun clearConnectionError() {
-        connectionErrorMessage = null
-    }
-
-    enum class ConnectionState {
-        CONNECTED, DISCONNECTED, CONNECTING, FAILED
-    }
-
-    var connectionState by mutableStateOf<ConnectionState>(ConnectionState.DISCONNECTED)
-        private set
-
+    // Connection operations
     fun connectDevice(device: Device) {
         if (connectionState == ConnectionState.CONNECTING) return
 
-        connectionErrorMessage = null
+        clearConnectionError()
         connectionState = ConnectionState.CONNECTING
+        
         try {
             bluetoothProvider.connect(
                 device = device,
@@ -107,5 +111,14 @@ class BluetoothViewModel(
             connectionState = ConnectionState.FAILED
             connectionErrorMessage = "Failed to connect to ${device.name}: ${e.message}"
         }
+    }
+
+    // Error management
+    fun clearPermissionError() {
+        permissionErrorMessage = null
+    }
+
+    fun clearConnectionError() {
+        connectionErrorMessage = null
     }
 }

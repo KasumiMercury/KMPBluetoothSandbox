@@ -76,7 +76,7 @@ class AndroidBluetoothProviderTest {
             onScanFailed = { failedMessage = it }
         )
         
-        assertEquals("Bluetooth is not enabled or not available.", failedMessage)
+        assertEquals("Bluetooth is not enabled or not available", failedMessage)
     }
 
     @Test
@@ -90,7 +90,7 @@ class AndroidBluetoothProviderTest {
             onScanFailed = { failedMessage = it }
         )
         
-        assertEquals("BLUETOOTH_SCAN permission is not granted.", failedMessage)
+        assertEquals("BLUETOOTH_SCAN permission is not granted", failedMessage)
     }
 
     @Test
@@ -104,7 +104,7 @@ class AndroidBluetoothProviderTest {
             onScanFailed = { failedMessage = it }
         )
         
-        assertEquals("BLUETOOTH_CONNECT permission is not granted.", failedMessage)
+        assertEquals("BLUETOOTH_CONNECT permission is not granted", failedMessage)
     }
 
     @Test
@@ -118,7 +118,7 @@ class AndroidBluetoothProviderTest {
             onScanFailed = { failedMessage = it }
         )
         
-        assertEquals("BluetoothLeScanner is not available.", failedMessage)
+        assertEquals("BluetoothLeScanner is not available", failedMessage)
     }
 
     @Test
@@ -180,5 +180,108 @@ class AndroidBluetoothProviderTest {
         provider.stopDeviceScan()
 
         verify { mockScanner.stopScan(scanCallbackSlot.captured) }
+    }
+
+    @Test
+    fun connect_throwsException_whenBluetoothScanPermissionNotGranted() {
+        every { mockContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) } returns PackageManager.PERMISSION_DENIED
+        
+        val device = Device("TestDevice", "00:11:22:33:AA:BB")
+        
+        try {
+            provider.connect(device, onConnected = {}, onConnectionFailed = {})
+            fail("Expected BluetoothPermissionException")
+        } catch (e: BluetoothPermissionException) {
+            assertEquals("BLUETOOTH_SCAN permission is not granted", e.message)
+        }
+    }
+
+    @Test
+    fun connect_throwsException_whenBluetoothConnectPermissionNotGranted() {
+        every { mockContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) } returns PackageManager.PERMISSION_DENIED
+        
+        val device = Device("TestDevice", "00:11:22:33:AA:BB")
+        
+        try {
+            provider.connect(device, onConnected = {}, onConnectionFailed = {})
+            fail("Expected BluetoothPermissionException")
+        } catch (e: BluetoothPermissionException) {
+            assertEquals("BLUETOOTH_CONNECT permission is not granted", e.message)
+        }
+    }
+
+    @Test
+    fun connect_throwsException_whenBluetoothAdapterIsNull() {
+        provider = AndroidBluetoothProvider(mockContext, null)
+        
+        val device = Device("TestDevice", "00:11:22:33:AA:BB")
+        
+        try {
+            provider.connect(device, onConnected = {}, onConnectionFailed = {})
+            fail("Expected UnsupportedOperationException")
+        } catch (e: UnsupportedOperationException) {
+            assertEquals("Bluetooth is not enabled or not available", e.message)
+        }
+    }
+
+    @Test
+    fun connect_throwsException_whenBluetoothAdapterIsDisabled() {
+        every { mockAdapter.isEnabled } returns false
+        
+        val device = Device("TestDevice", "00:11:22:33:AA:BB")
+        
+        try {
+            provider.connect(device, onConnected = {}, onConnectionFailed = {})
+            fail("Expected UnsupportedOperationException")
+        } catch (e: UnsupportedOperationException) {
+            assertEquals("Bluetooth is not enabled or not available", e.message)
+        }
+    }
+
+    @Test
+    fun connect_throwsException_whenDeviceNotInCache() {
+        val device = Device("TestDevice", "00:11:22:33:AA:BB")
+        
+        try {
+            provider.connect(device, onConnected = {}, onConnectionFailed = {})
+            fail("Expected IllegalArgumentException")
+        } catch (e: IllegalArgumentException) {
+            assertEquals("Device not found in cache: 00:11:22:33:AA:BB", e.message)
+        }
+    }
+
+    @Test
+    fun connect_callsConnectGatt_whenValidDevice() {
+        // First discover a device to add it to cache
+        val mockBluetoothDevice = mockk<BluetoothDevice>(relaxed = true)
+        every { mockBluetoothDevice.address } returns "00:11:22:33:AA:BB"
+        every { mockBluetoothDevice.name } returns "TestDevice"
+
+        val mockScanResult = mockk<ScanResult>()
+        every { mockScanResult.device } returns mockBluetoothDevice
+        every { mockScanResult.rssi } returns -50
+
+        val scanCallbackSlot = slot<ScanCallback>()
+        every { mockScanner.startScan(any(), any(), capture(scanCallbackSlot)) } just Runs
+
+        provider.startDeviceScan(
+            onDeviceFound = { },
+            onScanComplete = { },
+            onScanFailed = { }
+        )
+
+        // Simulate device discovery to add to cache
+        scanCallbackSlot.captured.onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, mockScanResult)
+
+        // Now test connection
+        val device = Device("TestDevice", "00:11:22:33:AA:BB")
+        
+        provider.connect(
+            device = device,
+            onConnected = {},
+            onConnectionFailed = {}
+        )
+
+        verify { mockBluetoothDevice.connectGatt(mockContext, false, any()) }
     }
 }

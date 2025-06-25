@@ -22,31 +22,41 @@ import androidx.core.content.ContextCompat
 import java.util.UUID
 import net.mercuryksm.device.Device
 
+/**
+ * Android platform implementation.
+ */
 class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
 }
 
 actual fun getPlatform(): Platform = AndroidPlatform()
 
+/**
+ * Android implementation of BluetoothProvider using Android's Bluetooth LE APIs.
+ * Provides scanning and connection functionality for Bluetooth devices.
+ */
 class AndroidBluetoothProvider(
     private val context: Context,
-    private val bluetoothAdapter: BluetoothAdapter?,
+    private val bluetoothAdapter: BluetoothAdapter?
 ) : BluetoothProvider {
-    private val tag = "AndroidBluetoothProvider"
+    
+    companion object {
+        private const val TAG = "AndroidBluetoothProvider"
+        private const val SCAN_TIMEOUT_MS = 3000L
+        // TODO: Make service UUID configurable
+        private val SERVICE_UUID = UUID.fromString("2c081c6d-61dd-4af8-ac2f-17f2ea5e5214")
+    }
 
+    // Device management
     private val deviceCache = mutableMapOf<String, BluetoothDevice>()
 
-    // TODO: provide a way to configure this UUID
-    private val serviceUuid = UUID.fromString("2c081c6d-61dd-4af8-ac2f-17f2ea5e5214")
-
+    // Scanning state
     private var activeScanner: BluetoothLeScanner? = null
     private var activeScanCallback: ScanCallback? = null
-
-    // TODO: test this with private val handler
-    val handler = Handler(Looper.getMainLooper())
+    private val handler = Handler(Looper.getMainLooper())
     private var scanRunnable: Runnable? = null
     
-    // Streaming scan callbacks
+    // Callbacks for streaming scan
     private var onDeviceFoundCallback: ((Device) -> Unit)? = null
     private var onScanCompleteCallback: ((List<Device>) -> Unit)? = null
     private var onScanFailedCallback: ((String) -> Unit)? = null
@@ -55,14 +65,24 @@ class AndroidBluetoothProvider(
         return bluetoothAdapter?.isEnabled == true
     }
 
+    /**
+     * Stops the currently active scan and clears all callbacks.
+     */
     private fun stopActiveScan() {
         try {
             activeScanner?.stopScan(activeScanCallback ?: return)
         } catch (e: SecurityException) {
-            Log.w(tag, "Failed to stop scan due to security exception", e)
+            Log.w(TAG, "Failed to stop scan due to security exception", e)
         } catch (e: Exception) {
-            Log.e(tag, "Failed to stop scan", e)
+            Log.e(TAG, "Failed to stop scan", e)
         }
+        clearScanState()
+    }
+
+    /**
+     * Clears all scanning-related state and callbacks.
+     */
+    private fun clearScanState() {
         activeScanner = null
         activeScanCallback = null
         onDeviceFoundCallback = null
@@ -70,18 +90,35 @@ class AndroidBluetoothProvider(
         onScanFailedCallback = null
     }
 
+    /**
+     * Cleanup method to stop any active scans and clear resources.
+     */
     fun cleanup() {
         scanRunnable?.let { handler.removeCallbacks(it) }
         activeScanCallback?.let {
             try {
                 activeScanner?.stopScan(it)
             } catch (e: SecurityException) {
-                Log.w(tag, "Failed to stop scan on cleanup", e)
+                Log.w(TAG, "Failed to stop scan on cleanup", e)
             }
         }
         activeScanner = null
         activeScanCallback = null
         scanRunnable = null
+    }
+
+    /**
+     * Checks if required Bluetooth permissions are granted.
+     * @return error message if permissions are missing, null if all permissions are granted
+     */
+    private fun checkBluetoothPermissions(): String? {
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+            return "BLUETOOTH_SCAN permission is not granted"
+        }
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            return "BLUETOOTH_CONNECT permission is not granted"
+        }
+        return null
     }
 
 
@@ -97,22 +134,19 @@ class AndroidBluetoothProvider(
             return
         }
 
-        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-            Log.e(tag, "BLUETOOTH_SCAN permission is not granted.")
-            onScanFailed("BLUETOOTH_SCAN permission is not granted.")
+        // Check permissions
+        val permissionError = checkBluetoothPermissions()
+        if (permissionError != null) {
+            Log.e(TAG, permissionError)
+            onScanFailed(permissionError)
             return
         }
 
-        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            Log.w(tag, "BLUETOOTH_CONNECT permission is not granted. Device names may not be available.")
-            onScanFailed("BLUETOOTH_CONNECT permission is not granted.")
-            return
-        }
-
-        val scanner: BluetoothLeScanner? = bluetoothAdapter.bluetoothLeScanner
+        // Get scanner
+        val scanner = bluetoothAdapter.bluetoothLeScanner
         if (scanner == null) {
-            Log.e(tag, "BluetoothLeScanner is not available.")
-            onScanFailed("BluetoothLeScanner is not available.")
+            Log.e(TAG, "BluetoothLeScanner is not available")
+            onScanFailed("BluetoothLeScanner is not available")
             return
         }
 
@@ -127,7 +161,7 @@ class AndroidBluetoothProvider(
 
         val filters = mutableListOf<ScanFilter>()
         val serviceFilter = ScanFilter.Builder()
-            .setServiceUuid(android.os.ParcelUuid(serviceUuid))
+            .setServiceUuid(android.os.ParcelUuid(SERVICE_UUID))
             .build()
         filters.add(serviceFilter)
 
@@ -138,7 +172,7 @@ class AndroidBluetoothProvider(
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 val device = result.device
                 Log.d(
-                    tag,
+                    TAG,
                     "onScanResult: Found device -> Name: ${device.name ?: "N/A"}, Address: ${device.address}, RSSI: ${result.rssi}"
                 )
                 if (!foundDevices.containsKey(device.address)) {
@@ -156,12 +190,12 @@ class AndroidBluetoothProvider(
 
             @SuppressLint("MissingPermission")
             override fun onBatchScanResults(results: List<ScanResult>) {
-                Log.d(tag, "onBatchScanResults: ${results.size} results")
+                Log.d(TAG, "onBatchScanResults: ${results.size} results")
                 for (result in results) {
                     val device = result.device
                     if (!foundDevices.containsKey(device.address)) {
                         Log.d(
-                            tag,
+                            TAG,
                             "onBatchScanResults: Found device -> Name: ${device.name ?: "N/A"}, Address: ${device.address}"
                         )
                         foundDevices[device.address] = device
@@ -185,7 +219,7 @@ class AndroidBluetoothProvider(
                     SCAN_FAILED_FEATURE_UNSUPPORTED -> "Feature unsupported"
                     else -> "Unknown error"
                 }
-                Log.e(tag, "Scan failed with error code: $errorCode - $errorMessage")
+                Log.e(TAG, "Scan failed with error code: $errorCode - $errorMessage")
                 onScanFailedCallback?.invoke(errorMessage)
             }
         }
@@ -193,21 +227,28 @@ class AndroidBluetoothProvider(
         activeScanner = scanner
         activeScanCallback = scanCallback
 
-        Log.d(tag, "Starting Bluetooth streaming scan...")
-        scanner.startScan(
-            filters,
-            settings,
-            scanCallback
-        )
+        Log.d(TAG, "Starting Bluetooth streaming scan...")
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+            scanner.startScan(
+                filters,
+                settings,
+                scanCallback
+            )
+        } else {
+            onScanFailed("BLUETOOTH_SCAN permission is not granted")
+            return
+        }
 
         scanRunnable = Runnable {
-            Log.d(tag, "Stopping Bluetooth scan after 3 seconds...")
+            Log.d(TAG, "Stopping Bluetooth scan after timeout...")
             try {
-                scanner.stopScan(scanCallback)
+                if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+                    scanner.stopScan(scanCallback)
+                }
             } catch (e: SecurityException) {
-                Log.w(tag, "Failed to stop scan due to security exception", e)
+                Log.w(TAG, "Failed to stop scan due to security exception", e)
             } catch (e: Exception) {
-                Log.e(tag, "Failed to stop scan", e)
+                Log.e(TAG, "Failed to stop scan", e)
             }
 
             activeScanner = null
@@ -219,17 +260,12 @@ class AndroidBluetoothProvider(
                     address = device.address
                 )
             }
-            Log.d(tag, "Scan completed. Found ${deviceList.size} devices.")
+            Log.d(TAG, "Scan completed. Found ${deviceList.size} devices.")
             onScanCompleteCallback?.invoke(deviceList)
-            
-            // Clear callbacks after completion
-            onDeviceFoundCallback = null
-            onScanCompleteCallback = null
-            onScanFailedCallback = null
+            clearScanState()
         }
 
-        // TODO: provide a way to configure this delay
-        handler.postDelayed(scanRunnable!!, 3000)
+        handler.postDelayed(scanRunnable!!, SCAN_TIMEOUT_MS)
     }
 
     override fun stopDeviceScan() {
@@ -245,51 +281,118 @@ class AndroidBluetoothProvider(
         onConnected: (() -> Unit)?,
         onConnectionFailed: ((String) -> Unit)?
     ) {
+        // Check permissions first
+        val permissionError = checkBluetoothPermissions()
+        if (permissionError != null) {
+            throw BluetoothPermissionException(permissionError)
+        }
+
+        // Validate Bluetooth state
+        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
+            throw UnsupportedOperationException("Bluetooth is not enabled or not available")
+        }
+
+        // Get device from cache
+        val bluetoothDevice = deviceCache[device.address]
+            ?: throw IllegalArgumentException("Device not found in cache: ${device.address}")
+
+        // Start connection
+        connectToGattServer(bluetoothDevice, onConnected, onConnectionFailed)
+    }
+
+    /**
+     * Connects to the GATT server on the specified device.
+     */
+    private fun connectToGattServer(
+        bluetoothDevice: BluetoothDevice,
+        onConnected: (() -> Unit)?,
+        onConnectionFailed: ((String) -> Unit)?
+    ) {
         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-            val bluetoothDevice = deviceCache[device.address]
-                ?: throw IllegalArgumentException("Device not found in cache: ${device.address}")
-
-            if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-                throw UnsupportedOperationException("Bluetooth is not enabled or not available.")
-            }
-
             bluetoothDevice.connectGatt(
                 context,
                 false,
-                object : BluetoothGattCallback() {
-                    override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
-                            return
-                        }
-                        if (newState == BluetoothProfile.STATE_CONNECTED) {
-                            gatt.discoverServices()
-                            onConnected?.invoke()
-                        } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                            if (status != BluetoothGatt.GATT_SUCCESS) {
-                                onConnectionFailed?.invoke("Connection failed with status: $status")
-                            }
-                        }
-                    }
-
-                    override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
-                            return
-                        }
-                        if (status != BluetoothGatt.GATT_SUCCESS) {
-                            onConnectionFailed?.invoke("Failed to discover services, status: $status")
-                        }
-                    }
-                }
+                createGattCallback(onConnected, onConnectionFailed)
             )
         } else {
-            throw BluetoothPermissionException("BLUETOOTH_CONNECT permission is not granted.")
+            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
+        }
+    }
+
+    /**
+     * Creates a GATT callback for handling connection events.
+     */
+    private fun createGattCallback(
+        onConnected: (() -> Unit)?,
+        onConnectionFailed: ((String) -> Unit)?
+    ): BluetoothGattCallback {
+        return object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                handleConnectionStateChange(gatt, status, newState, onConnected, onConnectionFailed)
+            }
+
+            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                handleServicesDiscovered(gatt, status, onConnectionFailed)
+            }
+        }
+    }
+
+    /**
+     * Handles GATT connection state changes.
+     */
+    private fun handleConnectionStateChange(
+        gatt: BluetoothGatt,
+        status: Int,
+        newState: Int,
+        onConnected: (() -> Unit)?,
+        onConnectionFailed: ((String) -> Unit)?
+    ) {
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
+            return
+        }
+
+        when (newState) {
+            BluetoothProfile.STATE_CONNECTED -> {
+                Log.d(TAG, "Connected to GATT server")
+                if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    gatt.discoverServices()
+                }
+                onConnected?.invoke()
+            }
+            BluetoothProfile.STATE_DISCONNECTED -> {
+                Log.d(TAG, "Disconnected from GATT server")
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    onConnectionFailed?.invoke("Connection failed with status: $status")
+                }
+            }
+        }
+    }
+
+    /**
+     * Handles GATT service discovery results.
+     */
+    private fun handleServicesDiscovered(
+        gatt: BluetoothGatt,
+        status: Int,
+        onConnectionFailed: ((String) -> Unit)?
+    ) {
+        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            onConnectionFailed?.invoke("BLUETOOTH_CONNECT permission is not granted")
+            return
+        }
+
+        if (status == BluetoothGatt.GATT_SUCCESS) {
+            Log.d(TAG, "Services discovered successfully")
+        } else {
+            Log.e(TAG, "Failed to discover services, status: $status")
+            onConnectionFailed?.invoke("Failed to discover services, status: $status")
         }
     }
 
     override fun disconnect() {
-        TODO("Implement disconnect logic")
+        // TODO: Implement disconnect logic - store and manage GATT connections
+        Log.w(TAG, "Disconnect functionality not yet implemented")
     }
 }
 
