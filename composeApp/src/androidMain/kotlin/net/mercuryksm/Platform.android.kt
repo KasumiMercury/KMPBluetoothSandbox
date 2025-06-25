@@ -134,22 +134,19 @@ class AndroidBluetoothProvider(
             return
         }
 
-        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
-            Log.e(tag, "BLUETOOTH_SCAN permission is not granted.")
-            onScanFailed("BLUETOOTH_SCAN permission is not granted.")
+        // Check permissions
+        val permissionError = checkBluetoothPermissions()
+        if (permissionError != null) {
+            Log.e(TAG, permissionError)
+            onScanFailed(permissionError)
             return
         }
 
-        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            Log.w(tag, "BLUETOOTH_CONNECT permission is not granted. Device names may not be available.")
-            onScanFailed("BLUETOOTH_CONNECT permission is not granted.")
-            return
-        }
-
-        val scanner: BluetoothLeScanner? = bluetoothAdapter.bluetoothLeScanner
+        // Get scanner
+        val scanner = bluetoothAdapter.bluetoothLeScanner
         if (scanner == null) {
-            Log.e(tag, "BluetoothLeScanner is not available.")
-            onScanFailed("BluetoothLeScanner is not available.")
+            Log.e(TAG, "BluetoothLeScanner is not available")
+            onScanFailed("BluetoothLeScanner is not available")
             return
         }
 
